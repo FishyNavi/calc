@@ -1,24 +1,15 @@
-#include<stdio.h>
 #include<stdlib.h>
 #include<string.h>
 #include<ctype.h>
 #include<math.h>
+#include<unistd.h>
+#include"main.h"
+#include"help.h"
 
-
-#define gotoxy(x,y) printf("\033[%d;%dH", (y), (x))
-
-#define SIZE 128
-typedef struct {
-    double data[SIZE];
-    int size;
-} DoubleStack;
-typedef struct {
-    char data[SIZE];
-    int size;
-} CharStack;
 
 
 void pushDouble(DoubleStack *s, double db) {
+    if (s->size >= SIZE - 1) return;
     s->data[++(s->size)] = db; }
 
 double popDouble(DoubleStack *s) {
@@ -30,9 +21,11 @@ double getDouble(DoubleStack *s) {
 
 
 void pushChar(CharStack *s, char ch) {
+    if (s->size >= SIZE - 1) return;
     s->data[++(s->size)] = ch; }
 
 char popChar(CharStack *s) {
+    if (s->size < 0) return 0.0;
     return s->data[(s->size)--]; }
 
 char getChar(CharStack *s) {
@@ -43,12 +36,6 @@ int isop(char c) {
     return (c == '+' || c == '-' || c == '*' || c == '/' || c == '^');
 }
 
-struct func {
-    char c;
-    double (*f)(double); // function pointer
-    char n[5]; // name 
-};
-typedef struct func Func;
 double factorial(double x) {
     return tgamma(x+1);
 }
@@ -65,7 +52,7 @@ struct func functions[12] = {
     {'S',asin,"asin"},
     {'c',cos,"cosi"},
     {'C',acos,"acos"},
-    {'t',tan,"tan"},
+    {'t',tan,"tang"},
     {'T',atan,"atan"},
     {'e',exp,"expo"},
     {'r',sqrt,"sqrt"},
@@ -123,9 +110,10 @@ double math(double x,double y,char op) {
         case '*': return x*y;
         case '/': return x/y;
         case '^': return pow(x, y);
+        default:  return NAN;
     }
 }
-void handleOps(CharStack *c, DoubleStack *d) {
+int handleOps(CharStack *c, DoubleStack *d) {
     double x;
     double y;
     if (isfunc(getChar(c))) {
@@ -141,8 +129,7 @@ void handleOps(CharStack *c, DoubleStack *d) {
             x = 0;
         }
         else if (d->size == 0) {
-            printf("%c", getChar(c));
-            exit(1); /// change this to sth better in future maybe
+            return 1;
         }
         else {
             y = popDouble(d); 
@@ -151,6 +138,7 @@ void handleOps(CharStack *c, DoubleStack *d) {
         char op = popChar(c);
         pushDouble(d, math(x,y,op));
     }
+    return 0;
 }
 
 double calc(char *expr) {
@@ -181,7 +169,7 @@ double calc(char *expr) {
         else if (expr[i]==')') {
 
             while (vals.size!=-1 && ops.size != -1 && getChar(&ops) != '(' ) {
-                handleOps(&ops,&vals);
+                if (handleOps(&ops,&vals)) return NAN;
             }
             popChar(&ops);
             possible_unary = 0;
@@ -201,7 +189,7 @@ double calc(char *expr) {
             }
             while (ops.size != -1 && vals.size!=-1 && precedence(getChar(&ops)) >= precedence(expr[i])) {
                 
-                handleOps(&ops,&vals);
+                if (handleOps(&ops,&vals)) return NAN;
             }
             pushChar(&ops, expr[i]);
             possible_unary = 1;
@@ -216,7 +204,7 @@ double calc(char *expr) {
 
     }
     while (ops.size != -1) {
-        handleOps(&ops,&vals);
+        if (handleOps(&ops,&vals)) return NAN;
     }
     return popDouble(&vals);
 }
@@ -267,11 +255,11 @@ void removeChar(char *str, int *pos) {
 }
 int main(int argc, char **argv)
 {   
-    char *expr = argv[1];
     char str[1256] = "";
     int pos = 0;
     system("clear");
     system("stty raw"); 
+    printf("%s","Press h to display help message");
     do{
 
         
@@ -290,7 +278,14 @@ int main(int argc, char **argv)
                 if (pos>0)
                     pos--;
                 break;
-            
+            case 'h':
+                system("clear");
+                printf("%s",help);
+                continue;
+            case 'H':
+                system("clear");
+                printf("%s",functions_help);
+                continue;
             default: 
                 if (key == 127 && pos>0) {
                     removeChar(str, &pos);
@@ -298,7 +293,7 @@ int main(int argc, char **argv)
                         removeChar(str, &pos); 
                     }
                 }
-                else if (isdigit(key) || isop(key) || key == ')' || key == '(' || key == 'p') insertChar(str, key, &pos);
+                else if (isdigit(key) || isop(key) || key == ')' || key == '(' || key == 'p' || key == '.') insertChar(str, key, &pos);
                 else if (isfunc(key)) {
                     insertChar(str, key, &pos);
                     insertChar(str, '(', &pos);
@@ -309,7 +304,13 @@ int main(int argc, char **argv)
 
         
         show(str,pos);
-        if (key == 'O') printf("\n\r= %g",calc(str));
+        if (key == 'O') {
+            double result = calc(str);
+            if (result != NAN) printf("\n\r= %g",result);
+            else {
+                printf("\n\r= %s","nan");
+            }
+        }
         
         
         
