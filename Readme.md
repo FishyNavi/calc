@@ -17,3 +17,5 @@ make
 ./calc
 ```
 
+Or you can download binary from releases instead.
+
